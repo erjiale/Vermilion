@@ -1,0 +1,275 @@
+1) Introduction:
+    - Attempting to create a Social Media Platform similar to Twitter using:   
+        *React/Redux, Express, and Firebase as our backend
+
+2) Set up the Firebase project (console)
+    - Create project, Create functions
+        - In terminal: firebase login, firebase init, choose functions, and the project we created
+        - Now we can set up db by creating Collections
+        1. const admin = require('firebase-admin');
+        2. admin.initializeApp(); // need this to have access to the Admin object
+        3. const db = admin.firestore(); // to have access to the db 
+
+3) GET, POST requests for a post(Data/Collection)
+
+4) Validation & Login Route:
+    - Add Validation for the register input fields:
+            *Email, passwords, handle/username: Must not be empty
+            *Email must be of email format
+            *Passwords must match
+            *Finally, check emails and handles are unique
+    - Login
+        *Validate the input fields: email & password: 'Must not be empty'
+            *If not empty: signIn the username
+                *If email and password match, then:
+                    *getIdToken() and return the user.token.
+
+5) Authentication Middleware (verification function for private routes):
+    - After setting up the GET posts, POST post, SIGNUP, and LOGIN routes:
+        - Set up the private routes => we don't want anyone posting to the db or getting all posts from the db
+    - We create function (FBAuth) to verify a user's token before letting them post
+        * During the verification, we want to pass the post's handle(the user who created it) to the req of the POST './post' request.
+    - Basically, we need the user's login token passed to the './post' POST request as the:
+            *'Authorization' HEADER === 'Bearer {token}' VALUE
+
+6) Reorganize folder structure
+    - Everything was being created in the index.js, making it confusing and unorganized
+    - So, let's reorganize the functions, config, handlers, utils, etc..., into different folders:
+            *Export/import when needed.
+    - ./util you have config, admin initialization, Auth middleware(FBAuth), ...
+    xxxxxx Faced with Internal Server error when trying to post a post xxxxxx
+
+7) Image Upload => POST request (create new route)
+    -- look into -> busboy npm docs
+    - NPM install busboy. Module for parsing HTML form data
+        - Work on '/api/user/image' route
+    - 'Set Storage' on firebase console and upload initial no-img.png (i.e. initial image until user uploads)
+    + Have to add imageUrl field to a user when signing up
+        - Now, we sign up -> try to access the imageUrl on browser -> permission denied, why? *
+            * Got to change 'Storage/Rules' to 'allow read;'
+        - Now, try uploading an img -> Postman/Body/form-data -> key: image'(File)' && value: 'Select File'
+            - Img uploads successfully
+            * HOWEVER, we can also upload e.g. a .txt file
+                + On 'busboy.on('file')...' -> add if conditions for the mimetype to be only image/jpeg or image/png
+
+8) Add and GET user profile details 
+    -   const userDetails = {
+            credentials: { bio, website, location, etc...},
+            likes: { what posts have I liked? }
+        }
+        1. POST request to add profile details
+            ** Check that the req.body is not empty
+            *** Then, look for the user in the db and .update()
+        2. GET request to read the user profile details
+            * Create empty object -> userData = {} to return with the Object we want from db
+            ** Access db.doc(/users/${req.user.handle}`).get() and store in userData.credentials, same for likes.
+            *** Then return the userData
+
+9) GET and POST comments from a specific post
+    - Create collection of 
+        Comments = [
+            {
+                userHandle: 'user',
+                postId: 'ByyDLTLQiSj5DJSARXbJ',
+                body: 'body',
+                createdAt: '....'
+            }
+        ]
+    + Route -> GET a specific post '/post/:postId' and all its comments   
+        * All comments must be sorted by newest to oldest
+        ** When returning db.collection('comments') add a .orderBy('createdAt', 'desc') -> result => res.json error{error 9}
+        ** To solve: create Index in the database - 
+        E.g. collection id: comments, fields indexed: postId Ascending createdAt Descending, Query Scope: Collection
+    + Route -> POST a comment to a post '/post/:postId/comment'
+        * Check body of comment is not empty
+        * Create newComment Object with the data of the comment to be posted 
+            ** (optional) Need imageUrl of the userHandle of the comment, so have to add it to req.user.imageUrl in FBAuth
+
+重：When making POST requests, all params must be given in the req for no errors. 
+    E.g. we need body, createdAt, and userHandle. If we only give body, and createdAt, we would get an error
+
+10) Like, Unlike, and Delete a post  
+    + LIKE route: app.get('/post/:postId/like', ...)
+        * Check if a post exists and whether we have liked it already, and increase that post's likeCount +1
+    + UNLIKE route: app.get('/post/:postId/unlike', ...)
+        * Very similar to like but reverse
+        ** Locate 'like' by the like's id -> doc(`likes/${data.docs[0].id}, and delete()
+        ** Decrease post's likeCount by 1
+        - When posting a new post, have to add new fields: likeCount and commentCount to 0;
+        * We could have likeCount and commentCount as part of a post instead of comments and likes being another collection.
+        * However, we want to try to keep documents as small as possible, making it easier to query
+        * E.g. If we have a post with 10000 comments, the post's doc would be huge and would take a lot to query
+        - New Collection of LIKES:
+            - likes: [{
+                    postId: "ByyDLTLQiSj5DJSARXbJ",
+                    userHandle: "user"
+                }]
+    + DELETE post route: app.delete('/post/:postId', ...)
+        * Locate Post document
+        ** Check the Post document's userHandle matches the req.user.handle 
+        ** We don't want to allow other users deleting your posts
+
+11) Notifications (Create and GET)
+    *   Database triggers (use these) Firebase
+    +   Notifications: [
+            {
+                recipient: 'user',
+                sender: 'jay',
+                read: 'true | false',
+                postId: 'ijafoskabksdm32',
+                type: 'like | comment',
+                createdAt: '2020-05-31T00:13:45.927Z'
+            }
+        ]
+    **  export function on index.js, we use db trigger -> .onCreate() a likes document,
+            it will create a notification on the owner of the post liked
+    **  same when commenting -> .onCreate() 
+            it will create a notification on the owner of the post commented on
+    *** ADD another function to delete a notification if a user Unlikes a post
+            -> .onDelete()
+    next() => In console.firebase... './Functions', we see the db triggers
+    **** It takes time for the db to create notifications, so be patient!
+    +   Add to getAuthenticatedUser => return the notifications
+        -   Notifications would be orderBy('createdAt', 'desc') => complex query, and so have to create index ({error 9})
+    Result: https://drive.google.com/file/d/1LxkzPbMvqgkOI3fCxB4o8rZCM08tPo91/view?usp=sharing
+    
+    + Route -> GET public PROFILE DETAILS of another user
+        * We can get our own profile details but need to verify, now create another to see other's profile
+    + Route -> MARK a Notification as READ
+        * Use Batch Write to write/update multiple documents
+        ** Notification Id's passed in the req.body, and for each notification id, we mark prop 'read' to 'true'
+
+12) FINAL Cloud Functions
+    *   When we like/comment our own posts, we also get a notification, which we don't want,
+        +   Add another condition with if(doc.exists)
+    *   Each post contains an imageUrl of the owner of the time the post created, if owner changes its image, we want
+        to update all of its posts' image (Another trigger needed) -> .onUpdate()
+        -   only if the user image has been changed, and not run this whenever user profile details are changed
+    * If a post is deleted, we want to delete all of its related likes, comments, and notifications
+        - Another db trigger function needed -> onDelete()
+    * If we go to Firebase REST api Docs, and to where it says -> Making REST calls
+        -   And we use: https://firestore.googleapis.com/v1/projects/YOUR_PROJECT_ID/databases/(default)/documents
+        -   with PROJECT_ID being in our config, anyone can access our API
+        + TO SOLVE: console.firebase -> Database -> Rules -> Change: allow read, write: if false
+            + i.e. don't allow read and write, locking down our database
+
+******************************************** BACKEND DONEEE!!!! ********************************************
+============================================================================================================
+******************************************* FRONTEND BEGINS NOW ********************************************
+
+13) REACT
+    create-react-app -> clean up the original code -> delete logo.svg, index.css, etc...
+        1.  Start by setting up the routes -> npm install --save react-router-dom
+        2.  Set up navbar component
+        3.  Add proxy property of backend to the package.json of client
+        4.  'npm install axios' to send requests to our api: 'https://us-central1-vermilion-e6c9c.cloudfunctions.net/api'
+    Work on each request one by one:
+        1.  GET Posts -> axios.get('/posts').then()....
+            *   Change 'CreatedAt' format to -> e.g. 5 seconds ago, 2 days ago, etc...
+                npm install --save dayjs -------> dayjs library
+                    import relativeTime dayjs plugin -> dayjs('time').fromNow() -> 2 days ago...
+        2.  LOGIN form 
+            *   Initialize state of the variables needed for the requests. E.g. email, password, errors, ...
+            *   Use ComponentDidMount() to make the requests
+            *   HandleSubmit and HandleChange functions for each text field
+        3.  SIGNUP form
+            *   Very similar to LOGIN, just add more states, and change some variable names. Copy+Paste (2.)
+        4.  AUTH state
+            *   When logged in, we should store the token in the localStorage.
+            *   npm install --save jwt-decode ------> decode the token and get the token's exp to check if it's expired
+        5.  REDUX
+            *   npm install --save redux react-redux redux-thunk
+                * react-redux is like the middle-man between react and Redux
+            *   Setup store.js, the types of actions, actions, and reducers
+            *   App.js import Provider middleware and store
+            *   For every page/component that uses an action from redux, need to connect, mapStateToProps, etc...
+            *** Create action for gettingPosts, and create the Reducers, finally, connect to the home Component
+        6.  PROFILE
+            *   mapStateToProps -> we have a 'user' variable with data from a user which we can pass a props to
+                                    a Profile component. Render() {....}
+        7.  IMAGE upload
+            *   Underneath where we render an <img/>:
+                + <input> tag with type="file", id, and a function to handle the input onClick
+                + HandlePic function -> save img passed, and then append it into a FormData() Form Object
+        8.  LOGOUT
+            *   Add a logout button that will use a Redux action -> logoutUser
+        9.  EDIT Profile details
+            *   Create:
+                    1) Action
+                    2) Reducer, for editing a Post.
+            *   Use editUserDetails action
+            *   OnClick edit button, we can display a Dialog to with TextFields to input data
+        10. NAV BAR 
+            *   Add different display of NavBar based on authentication = (true || false)
+            *   Get Notifications -
+            *   Add Post - (13.)
+        11. LIKE and UNLIKE actions (8:08:02)
+            *   First, create Types, Actions, Reducers, and then connect to the front-end component
+            *   After liking/unliking, we need to update our state in the Redux store:
+                **  The likeCount for the specific post we are liking/unliking
+                **  The likes array/collection
+            *   FRONT-END ---> If authenticated --> (Show a full heart if already liked, else show FavoriteBorder)
+        12. DELETE post button
+            *   We want a button to allow us to delete our own posts
+            *   Create Action, Reducer, and then connect the components
+        13. ADD POST (10.) - (8:59:25)
+            *   Create Actions, Reducers, and connect the components
+                                   - Front-end: open up a Dialog to input the contents of the post
+                                        -   <form onSubmit={this.handleSubmit}.....>
+                                        -   handleSubmit will take the body from this.state.body
+                                        -   and call addPost(this.state.body) action from Redux
+                                        -   Dispatch SET_ERRORS --> CLEAR_ERRORS when handleClose()
+                                    - Remember to fully clear errors from our redux state when handleClose()
+        14. EXPAND POST DETAILS
+            *   Add button to open a dialog of each individual post with more details about the post
+            *   Add the likeButton and CommentButton too
+            *   PROBLEM: when liking on the expanded dialog, individual post's likeCount not updated,
+                So we have to update the dataReducer when we like/unlike a post to also change data.post.likeCount
+        15. COMMENTS
+            *   Display comments --> Every post has an array of comments
+                                     Iterate the array, and for each comment => {
+                                         output ---> userHandle, body, createdAt, and userImage
+                                     };
+            *   Submit a comment --> AddComment type, ACTION, REDUCER, and CONNECT
+                                     FRONT-END => We have a state = { body: ''} since we need an input
+                                                - Only show this commentForm if authenticated
+                                                - Include UI for displaying errors, like Empty Comment input
+                                   --- PROBLEMS: Home commentCount and PostDialog commentCount are not updated
+        16. NOTIFICATIONS
+            *   Show badge with commentCount if (commentCount > 0)
+                1)  We need to create a unique url for each specific post ( create new Route in App.js)
+                    a)  When we open a post, the url should change, same for when we close the post
+                2)  When we click on a notification, it redirects us to the post liked/commented by whoever
+                3)  Show the notifications list when clicking the Notifications button
+        17. SKELETONS (loading) - more visually attractive
+            *   Whenever we are loading data, we can showcase a static skeleton
+                Basically an outline of the posts/profile/data that is going to be rendered
+        
+14) DEPLOYMENT
+    - CORS - adds headers that tells our application that you can give these resources to anyone requesting these
+             add it to the backend -> npm install cors -> const cors = require('cors') -> app.use(cors());
+    - npm run build -> cd build -> live-server
+    - add to /client/src/App.js: axios.defaults.baseURL = 'https://us-central1-vermilion-e6c9c.cloudfunctions.net/api';
+                            Used for the build folder to know where to make axios call requests
+    - Go:
+            - Firebase -> Open Your App -> Hosting
+            - Local Client Folder -> firebase init -> Y
+                                    -> Hosting (Spacebar->Enter) 
+                                        -> Use existing app -> vermilion
+                                            -> build ('we want to use the build directory) 
+                                                -> Yes ('configure as a single-page app') 
+                                                    -> No ('We do not want to overwrite')
+                        + Firebase initialization complete!
+                                -> firebase deploy
+                        + Deploy complete!
+                                -> Hosting URL: ....
+
+15) SIGN-IN W/ Facebook
+    - Enable in Firebase console/Authorization
+            - Go:   'developers.facebook.com/apps' -> create app and get the 'App Id', and 'App Secret'
+                -   Get redirect link from firebase console and to ->Valid OAuth Redirect Urls in Fbk Login/Settings
+
+    
+
+
+

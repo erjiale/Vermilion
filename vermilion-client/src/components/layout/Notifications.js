@@ -77,7 +77,7 @@ class Notifications extends Component {
                             onClick={this.handleClose} 
                             component={Link}
                             variant="body1"
-                            to={`/${notif.recipient}/post/${notif.postId}`}
+                            to={`/user/${notif.recipient}/post/${notif.postId}`}
                         >
                             {icon}
                             <Typography className="notification-text">

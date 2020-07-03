@@ -30,6 +30,8 @@ const styles = {
         },
         '& .profile-details': {
             textAlign: 'center',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
             '& span, svg': {
                 verticalAlign: 'middle'
             }

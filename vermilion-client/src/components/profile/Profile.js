@@ -23,7 +23,7 @@ import KeyboardReturn from '@material-ui/icons/KeyboardReturn';
 
 const styles = {
     paper: {
-        padding: 20
+        padding: 20,
     },
     profile: {
         '& .image-wrapper': {
@@ -44,14 +44,17 @@ const styles = {
         },
         '& .profile-details': {
             textAlign: 'center',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
             '& span, svg': {
                 verticalAlign: 'middle'
-            }
+            },
         },
         '& hr': {
             border: 'none',
             margin: '0 0 10px 0'
-        }
+        },
+
     },
     buttons: {
         textAlign: 'center',

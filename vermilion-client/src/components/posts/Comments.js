@@ -63,6 +63,7 @@ class Comments extends Component {
                                             </Typography>
                                             <hr className={classes.invisLine} />
                                             <Typography 
+                                                noWrap
                                                 variant="body1"
                                             >
                                                 {body}

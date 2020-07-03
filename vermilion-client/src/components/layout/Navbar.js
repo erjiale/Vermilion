@@ -30,6 +30,9 @@ const styles ={
         '& .text': {
             color: '#ffffff',
             paddingLeft: 12,
+            maxWidth: 200,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis'
         }
     },
     button: {

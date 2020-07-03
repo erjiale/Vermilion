@@ -40,7 +40,7 @@ const styles = {
     },
     closeButton: {
         position: 'absolute',
-        left: '90%'
+        left: '80%'
     },
     expandButton: {
         position: 'absolute',

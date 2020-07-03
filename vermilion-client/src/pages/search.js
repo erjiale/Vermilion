@@ -7,6 +7,7 @@ import { connect } from 'react-redux';
 import { searchUsers } from '../redux/actions/dataActions';
 // MUI 
 import Typography from '@material-ui/core/Typography';
+import Grid from '@material-ui/core/Grid';
 
 class search extends Component {
     constructor() {
@@ -17,7 +18,7 @@ class search extends Component {
     }
 
     componentDidMount() {
-        console.log('query: ' + this.state.query);
+        // console.log('query: ' + this.state.query);
 
         if(this.state.query !== "") {
             this.props.searchUsers(this.state.query);
@@ -35,7 +36,10 @@ class search extends Component {
     }
     
     render() {
-        const { data: { searchedUsers, loading } } = this.props;
+        const { 
+            data: { searchedUsers, loading }, 
+            user: { authenticated, credentials: { handle } } 
+        } = this.props;
 
         return (
             <div>
@@ -44,8 +48,21 @@ class search extends Component {
                     <Typography>searching user...</Typography>
                 ) : (
                     <div>
-                        {searchedUsers[0] ? (searchedUsers.map(user => 
-                                <SearchCard key={user.user} user={user.user} userImage={user.userImage}/>)
+                        {searchedUsers[0] ? (
+                            <Grid container spacing={1}>
+                               {searchedUsers.map(userSearched => 
+                                    (authenticated && handle === userSearched.user ? (
+                                        ''
+                                    ) : (
+                                        <Grid item xs={6} sm={2} key={userSearched.user}>
+                                            <SearchCard 
+                                                user={userSearched.user} 
+                                                userImage={userSearched.userImage}
+                                            />
+                                        </Grid>
+                                    ))
+                                )}
+                            </Grid>
                         ) : (
                             <p>No results found</p>
                         )}
@@ -58,11 +75,13 @@ class search extends Component {
 
 search.propTypes = {
     data: PropTypes.object.isRequired,
-    searchUsers: PropTypes.func.isRequired
+    searchUsers: PropTypes.func.isRequired,
+    user: PropTypes.object.isRequired,
 }
 
 const mapStateToProps = (state) => ({
-    data: state.data
+    data: state.data,
+    user: state.user
 });
 
 export default connect(mapStateToProps, { searchUsers })(search);
